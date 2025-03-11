@@ -76,6 +76,8 @@ class FlutterV2ray {
     List<String>? bypassSubnets,
     bool proxyOnly = false,
     String notificationDisconnectButtonName = "DISCONNECT",
+    bool wakeLock = false,
+    bool showSpeed = false,
   }) async {
     try {
       if (jsonDecode(config) == null) {
@@ -92,6 +94,8 @@ class FlutterV2ray {
       proxyOnly: proxyOnly,
       bypassSubnets: bypassSubnets,
       notificationDisconnectButtonName: notificationDisconnectButtonName,
+      wakeLock: wakeLock,
+      showSpeed: showSpeed,
     );
   }
 

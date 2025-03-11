@@ -82,12 +82,25 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
 
         vpnControlMethod.setMethodCallHandler((call, result) -> {
             switch (call.method) {
+
+                case "changeConnectionMode":
+                        String mode = call.argument("mode");
+                        if (mode.equals("PROXY_ONLY")) {
+                            V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
+                        } else {
+                            V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.VPN_TUN);
+                        }
+                        result.success(null);
+                        break;
                 case "startV2Ray":
                     AppConfigs.NOTIFICATION_DISCONNECT_BUTTON_NAME = call.argument("notificationDisconnectButtonName");
+                     boolean wakeLock = call.argument("wakeLock");
+                     boolean showSpeed = call.argument("showSpeed");
+
                     if (Boolean.TRUE.equals(call.argument("proxy_only"))) {
                         V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
                     }
-                    V2rayController.StartV2ray(binding.getApplicationContext(), call.argument("remark"), call.argument("config"), call.argument("blocked_apps"), call.argument("bypass_subnets"));
+                    V2rayController.StartV2ray(binding.getApplicationContext(), call.argument("remark"), call.argument("config"), call.argument("blocked_apps"), call.argument("bypass_subnets"), wakeLock, showSpeed);
                     result.success(null);
                     break;
                 case "stopV2Ray":

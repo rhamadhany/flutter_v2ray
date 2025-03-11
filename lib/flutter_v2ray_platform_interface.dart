@@ -43,6 +43,8 @@ abstract class FlutterV2rayPlatform extends PlatformInterface {
     List<String>? blockedApps,
     List<String>? bypassSubnets,
     bool proxyOnly = false,
+    bool wakeLock = false,
+    bool showSpeed = false,
   }) {
     throw UnimplementedError('startV2Ray() has not been implemented.');
   }

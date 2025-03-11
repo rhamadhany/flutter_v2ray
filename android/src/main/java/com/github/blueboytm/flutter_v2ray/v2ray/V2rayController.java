@@ -38,14 +38,15 @@ public class V2rayController {
         }
     }
 
+
     public static void changeConnectionMode(final AppConfigs.V2RAY_CONNECTION_MODES connection_mode) {
-        if (getConnectionState() == AppConfigs.V2RAY_STATES.V2RAY_DISCONNECTED) {
+        // if (getConnectionState() == AppConfigs.V2RAY_STATES.V2RAY_DISCONNECTED) {
             AppConfigs.V2RAY_CONNECTION_MODE = connection_mode;
-        }
+        // }
     }
 
-    public static void StartV2ray(final Context context, final String remark, final String config, final ArrayList<String> blocked_apps, final ArrayList<String> bypass_subnets) {
-        AppConfigs.V2RAY_CONFIG = Utilities.parseV2rayJsonFile(remark, config, blocked_apps, bypass_subnets);
+    public static void StartV2ray(final Context context, final String remark, final String config, final ArrayList<String> blocked_apps, final ArrayList<String> bypass_subnets, boolean wakeLock, boolean showSpeed) {
+        AppConfigs.V2RAY_CONFIG = Utilities.parseV2rayJsonFile(remark, config, blocked_apps, bypass_subnets, wakeLock, showSpeed);
         if (AppConfigs.V2RAY_CONFIG == null) {
             return;
         }

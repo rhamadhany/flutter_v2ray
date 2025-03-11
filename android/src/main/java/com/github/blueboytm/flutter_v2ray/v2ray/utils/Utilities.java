@@ -60,8 +60,10 @@ public class Utilities {
     }
 
 
-    public static V2rayConfig parseV2rayJsonFile(final String remark, String config, final ArrayList<String> blockedApplication, final ArrayList<String> bypass_subnets) {
+    public static V2rayConfig parseV2rayJsonFile(final String remark, String config, final ArrayList<String> blockedApplication, final ArrayList<String> bypass_subnets,final boolean wakeLock, final boolean showSpeed) {
         final V2rayConfig v2rayConfig = new V2rayConfig();
+        v2rayConfig.SHOW_SPEED   =  showSpeed;
+        v2rayConfig.WAKE_LOCK = wakeLock;
         v2rayConfig.REMARK = remark;
         v2rayConfig.BLOCKED_APPS = blockedApplication;
         v2rayConfig.BYPASS_SUBNETS = bypass_subnets;

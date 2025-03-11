@@ -23,12 +23,18 @@ import java.io.FileDescriptor;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+// Add these imports at the top
+import android.content.Context;
+import android.os.PowerManager;
 
+import com.github.blueboytm.flutter_v2ray.v2ray.utils.AppConfigs;
 public class V2rayVPNService extends VpnService implements V2rayServicesListener {
     private ParcelFileDescriptor mInterface;
     private Process process;
     private V2rayConfig v2rayConfig;
     private boolean isRunning = true;
+    private PowerManager.WakeLock wakeLock;
+
 
     @Override
     public void onCreate() {
@@ -44,9 +50,21 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
             if (v2rayConfig == null) {
                 this.onDestroy();
             }
+
             if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
                 V2rayCoreManager.getInstance().stopCore();
             }
+
+              if (v2rayConfig.WAKE_LOCK) {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "flutter_v2ray:wakelock");
+        wakeLock.acquire();
+    } else {
+        if (wakeLock != null && wakeLock.isHeld()) {
+        wakeLock.release();
+    }
+    }
+
             if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
                 Log.e(V2rayProxyOnlyService.class.getSimpleName(), "onStartCommand success => v2ray core started.");
             } else {
@@ -85,6 +103,11 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         } catch (Exception e) {
             // ignored
         }
+
+         if (wakeLock != null && wakeLock.isHeld()) {
+        wakeLock.release();
+        wakeLock = null;
+    }
 
     }
 
@@ -213,6 +236,9 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
 
     @Override
     public void onDestroy() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+        wakeLock.release();
+    }
         super.onDestroy();
     }
 
