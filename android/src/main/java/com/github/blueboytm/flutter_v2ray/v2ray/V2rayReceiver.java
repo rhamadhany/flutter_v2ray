@@ -15,17 +15,28 @@ public class V2rayReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         try {
-            ArrayList<String> list = new ArrayList<>();
-            list.add(intent.getExtras().getString("DURATION"));
-            list.add(String.valueOf(intent.getLongExtra("UPLOAD_SPEED", 0)));
-            list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_SPEED", 0)));
-            list.add(String.valueOf(intent.getLongExtra("UPLOAD_TRAFFIC", 0)));
-            list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_TRAFFIC", 0)));
-            list.add(intent.getExtras().getSerializable("STATE").toString().substring(6));
-            vpnStatusSink.success(list);
+            if (vpnStatusSink != null && "V2RAY_CONNECTION_INFO".equals(intent.getAction())) {
+                ArrayList<String> list = new ArrayList<>();
+                
+                // Add duration
+                String duration = intent.getStringExtra("DURATION");
+                list.add(duration != null ? duration : "00:00:00");
+                
+                // Add speeds and traffic
+                list.add(String.valueOf(intent.getLongExtra("UPLOAD_SPEED", 0)));
+                list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_SPEED", 0)));
+                list.add(String.valueOf(intent.getLongExtra("UPLOAD_TRAFFIC", 0)));
+                list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_TRAFFIC", 0)));
+                
+                // Add connection state
+                Object state = intent.getSerializableExtra("STATE");
+                list.add(state != null ? state.toString().substring(6) : "DISCONNECTED");
+                
+                vpnStatusSink.success(list);
+                //Log.d("V2rayReceiver", "Status update sent to Flutter: " + list);
+            }
         } catch (Exception e) {
-            Log.e("V2rayReceiver", "onReceive failed", e);
+            Log.e("V2rayReceiver", "Error processing broadcast", e);
         }
     }
-
 }

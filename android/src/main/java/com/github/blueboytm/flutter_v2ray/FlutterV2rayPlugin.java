@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.VpnService;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -29,9 +30,6 @@ import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.PluginRegistry;
 
-/**
- * FlutterV2rayPlugin
- */
 public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginRegistry.ActivityResultListener {
 
     private static final int REQUEST_CODE_VPN_PERMISSION = 24;
@@ -39,64 +37,49 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private MethodChannel vpnControlMethod;
     private EventChannel vpnStatusEvent;
-    private EventChannel.EventSink vpnStatusSink;
     private Activity activity;
-    private BroadcastReceiver v2rayBroadCastReceiver;
     private MethodChannel.Result pendingResult;
+    private BroadcastReceiver v2rayReceiver;
+    private Context applicationContext;
 
     @SuppressLint("DiscouragedApi")
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+        applicationContext = binding.getApplicationContext();
         vpnControlMethod = new MethodChannel(binding.getBinaryMessenger(), "flutter_v2ray");
         vpnStatusEvent = new EventChannel(binding.getBinaryMessenger(), "flutter_v2ray/status");
 
         vpnStatusEvent.setStreamHandler(new EventChannel.StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
-                vpnStatusSink = events;
-                V2rayReceiver.vpnStatusSink = vpnStatusSink;
-
-                // Register the BroadcastReceiver now that vpnStatusSink is available
-                if (v2rayBroadCastReceiver == null) {
-                    v2rayBroadCastReceiver = new V2rayReceiver();
-                }
-                IntentFilter filter = new IntentFilter("V2RAY_CONNECTION_INFO");
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    activity.registerReceiver(v2rayBroadCastReceiver, filter, Context.RECEIVER_EXPORTED);
-                } else {
-                    activity.registerReceiver(v2rayBroadCastReceiver, filter);
-                }
+                V2rayReceiver.vpnStatusSink = events;
+                registerReceiver();
+                //Log.d("FlutterV2ray", "EventChannel listener registered");
             }
 
             @Override
             public void onCancel(Object arguments) {
-                if (vpnStatusSink != null) vpnStatusSink.endOfStream();
-
-                // Unregister the BroadcastReceiver when the stream is canceled
-                if (v2rayBroadCastReceiver != null) {
-                    activity.unregisterReceiver(v2rayBroadCastReceiver);
-                    v2rayBroadCastReceiver = null;
-                }
+                unregisterReceiver();
+                V2rayReceiver.vpnStatusSink = null;
+                //Log.d("FlutterV2ray", "EventChannel listener unregistered");
             }
         });
 
         vpnControlMethod.setMethodCallHandler((call, result) -> {
             switch (call.method) {
-
                 case "changeConnectionMode":
-                        String mode = call.argument("mode");
-                        if (mode.equals("PROXY_ONLY")) {
-                            V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
-                        } else {
-                            V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.VPN_TUN);
-                        }
-                        result.success(null);
-                        break;
+                    String mode = call.argument("mode");
+                    if (mode.equals("PROXY_ONLY")) {
+                        V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
+                    } else {
+                        V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.VPN_TUN);
+                    }
+                    result.success(null);
+                    break;
                 case "startV2Ray":
                     AppConfigs.NOTIFICATION_DISCONNECT_BUTTON_NAME = call.argument("notificationDisconnectButtonName");
-                     boolean wakeLock = call.argument("wakeLock");
-                     boolean showSpeed = call.argument("showSpeed");
-
+                    boolean wakeLock = call.argument("wakeLock");
+                    boolean showSpeed = call.argument("showSpeed");
                     if (Boolean.TRUE.equals(call.argument("proxy_only"))) {
                         V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
                     }
@@ -150,40 +133,59 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
                     }
                     break;
                 default:
+                    result.notImplemented();
                     break;
             }
         });
     }
 
+    private void registerReceiver() {
+        if (v2rayReceiver == null) {
+            v2rayReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (V2rayReceiver.vpnStatusSink != null && "V2RAY_CONNECTION_INFO".equals(intent.getAction())) {
+                        new V2rayReceiver().onReceive(context, intent);
+                        //Log.d("FlutterV2ray", "Received status update broadcast");
+                    }
+                }
+            };
+            
+            IntentFilter filter = new IntentFilter("V2RAY_CONNECTION_INFO");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                applicationContext.registerReceiver(v2rayReceiver, filter, Context.RECEIVER_EXPORTED);
+            } else {
+                applicationContext.registerReceiver(v2rayReceiver, filter);
+            }
+            //Log.d("FlutterV2ray", "Broadcast receiver registered");
+        }
+    }
+
+    private void unregisterReceiver() {
+        if (v2rayReceiver != null) {
+            try {
+                applicationContext.unregisterReceiver(v2rayReceiver);
+                v2rayReceiver = null;
+                //Log.d("FlutterV2ray", "Broadcast receiver unregistered");
+            } catch (Exception e) {
+                Log.e("FlutterV2ray", "Failed to unregister receiver", e);
+            }
+        }
+    }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        if (v2rayBroadCastReceiver != null) {
-            activity.unregisterReceiver(v2rayBroadCastReceiver);
-            v2rayBroadCastReceiver = null;
-        }
+        unregisterReceiver();
         vpnControlMethod.setMethodCallHandler(null);
         vpnStatusEvent.setStreamHandler(null);
         executor.shutdown();
+        //Log.d("FlutterV2ray", "Plugin detached from engine");
     }
 
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         activity = binding.getActivity();
         binding.addActivityResultListener(this);
-        // Register the receiver if vpnStatusSink is already set
-        if (vpnStatusSink != null) {
-            V2rayReceiver.vpnStatusSink = vpnStatusSink;
-            if (v2rayBroadCastReceiver == null) {
-                v2rayBroadCastReceiver = new V2rayReceiver();
-            }
-            IntentFilter filter = new IntentFilter("V2RAY_CONNECTION_INFO");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.registerReceiver(v2rayBroadCastReceiver, filter, Context.RECEIVER_EXPORTED);
-            } else {
-                activity.registerReceiver(v2rayBroadCastReceiver, filter);
-            }
-        }
     }
 
     @Override
@@ -195,20 +197,6 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
     public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
         activity = binding.getActivity();
         binding.addActivityResultListener(this);
-
-        // Re-register the receiver if vpnStatusSink is already set
-        if (vpnStatusSink != null) {
-            V2rayReceiver.vpnStatusSink = vpnStatusSink;
-            if (v2rayBroadCastReceiver == null) {
-                v2rayBroadCastReceiver = new V2rayReceiver();
-            }
-            IntentFilter filter = new IntentFilter("V2RAY_CONNECTION_INFO");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.registerReceiver(v2rayBroadCastReceiver, filter, Context.RECEIVER_EXPORTED);
-            } else {
-                activity.registerReceiver(v2rayBroadCastReceiver, filter);
-            }
-        }
     }
 
     @Override

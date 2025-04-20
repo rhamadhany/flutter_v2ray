@@ -25,6 +25,8 @@ public class V2rayController {
         AppConfigs.APPLICATION_ICON = app_icon;
         AppConfigs.APPLICATION_NAME = app_name;
 
+        // Removed receiver registration as it’s now handled in V2rayProxyOnlyService and V2rayVPNService
+        /*
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context arg0, Intent arg1) {
@@ -36,8 +38,8 @@ public class V2rayController {
         } else {
             context.registerReceiver(receiver, new IntentFilter("V2RAY_CONNECTION_INFO"));
         }
+        */
     }
-
 
     public static void changeConnectionMode(final AppConfigs.V2RAY_CONNECTION_MODES connection_mode) {
         // if (getConnectionState() == AppConfigs.V2RAY_STATES.V2RAY_DISCONNECTED) {
@@ -111,7 +113,7 @@ public class V2rayController {
         IntentFilter delayIntentFilter = new IntentFilter("CONNECTED_V2RAY_SERVER_DELAY");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.registerReceiver(receiver, delayIntentFilter, Context.RECEIVER_EXPORTED);
-        }else{
+        } else {
             context.registerReceiver(receiver, delayIntentFilter);
         }
 
@@ -141,6 +143,4 @@ public class V2rayController {
     public static String getCoreVersion() {
         return Libv2ray.checkVersionX();
     }
-
-
 }

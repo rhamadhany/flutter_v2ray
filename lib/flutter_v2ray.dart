@@ -31,7 +31,7 @@ class FlutterV2ray {
   /// You must initialize V2Ray before using it.
   Future<void> initializeV2Ray({
     String notificationIconResourceType = "mipmap",
-    String notificationIconResourceName = "launcher_icon",
+    String notificationIconResourceName = "notification",
   }) async {
     await FlutterV2rayPlatform.instance.initializeV2Ray(
       onStatusChanged: onStatusChanged,

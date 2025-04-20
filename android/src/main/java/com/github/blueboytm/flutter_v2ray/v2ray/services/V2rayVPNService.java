@@ -1,14 +1,19 @@
 package com.github.blueboytm.flutter_v2ray.v2ray.services;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
+import android.os.PowerManager;
 import android.util.Log;
 
+import com.github.blueboytm.flutter_v2ray.v2ray.V2rayReceiver;
 import com.github.blueboytm.flutter_v2ray.v2ray.core.V2rayCoreManager;
 import com.github.blueboytm.flutter_v2ray.v2ray.interfaces.V2rayServicesListener;
 import com.github.blueboytm.flutter_v2ray.v2ray.utils.AppConfigs;
@@ -23,11 +28,7 @@ import java.io.FileDescriptor;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-// Add these imports at the top
-import android.content.Context;
-import android.os.PowerManager;
 
-import com.github.blueboytm.flutter_v2ray.v2ray.utils.AppConfigs;
 public class V2rayVPNService extends VpnService implements V2rayServicesListener {
     private ParcelFileDescriptor mInterface;
     private Process process;
@@ -35,11 +36,39 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
     private boolean isRunning = true;
     private PowerManager.WakeLock wakeLock;
 
+    private final BroadcastReceiver v2rayReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            try {
+                ArrayList<String> list = new ArrayList<>();
+                list.add(intent.getStringExtra("DURATION"));
+                list.add(String.valueOf(intent.getLongExtra("UPLOAD_SPEED", 0)));
+                list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_SPEED", 0)));
+                list.add(String.valueOf(intent.getLongExtra("UPLOAD_TRAFFIC", 0)));
+                list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_TRAFFIC", 0)));
+                list.add(intent.getSerializableExtra("STATE").toString().substring(6));
+                V2rayReceiver.vpnStatusSink.success(list);
+                AppConfigs.V2RAY_STATE = (AppConfigs.V2RAY_STATES) intent.getSerializableExtra("STATE");
+                //Log.d("V2rayVPNService", "Received broadcast: " + intent.getAction());
+            } catch (Exception e) {
+                Log.e("V2rayVPNService", "Broadcast receive failed", e);
+            }
+        }
+    };
 
     @Override
     public void onCreate() {
         super.onCreate();
         V2rayCoreManager.getInstance().setUpListener(this);
+
+        // Register receiver dynamically
+        IntentFilter filter = new IntentFilter("V2RAY_CONNECTION_INFO");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(v2rayReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(v2rayReceiver, filter);
+        }
+        //Log.d("V2rayVPNService", "Registered V2rayReceiver");
     }
 
     @Override
@@ -55,15 +84,15 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
                 V2rayCoreManager.getInstance().stopCore();
             }
 
-              if (v2rayConfig.WAKE_LOCK) {
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "flutter_v2ray:wakelock");
-        wakeLock.acquire();
-    } else {
-        if (wakeLock != null && wakeLock.isHeld()) {
-        wakeLock.release();
-    }
-    }
+            if (v2rayConfig.WAKE_LOCK) {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "flutter_v2ray:wakelock");
+                wakeLock.acquire();
+            } else {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    wakeLock.release();
+                }
+            }
 
             if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
                 Log.e(V2rayProxyOnlyService.class.getSimpleName(), "onStartCommand success => v2ray core started.");
@@ -104,11 +133,10 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
             // ignored
         }
 
-         if (wakeLock != null && wakeLock.isHeld()) {
-        wakeLock.release();
-        wakeLock = null;
-    }
-
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+            wakeLock = null;
+        }
     }
 
     private void setup() {
@@ -169,7 +197,6 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         } catch (Exception e) {
             stopAllProcess();
         }
-
     }
 
     private void runTun2socks() {
@@ -233,12 +260,18 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         }, "sendFd_Thread").start();
     }
 
-
     @Override
     public void onDestroy() {
+        // Unregister receiver
+        try {
+            unregisterReceiver(v2rayReceiver);
+            //Log.d("V2rayVPNService", "Unregistered V2rayReceiver");
+        } catch (Exception e) {
+            Log.e("V2rayVPNService", "Failed to unregister receiver", e);
+        }
         if (wakeLock != null && wakeLock.isHeld()) {
-        wakeLock.release();
-    }
+            wakeLock.release();
+        }
         super.onDestroy();
     }
 
