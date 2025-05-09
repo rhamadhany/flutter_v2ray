@@ -60,8 +60,14 @@ public class Utilities {
     }
 
 
-    public static V2rayConfig parseV2rayJsonFile(final String remark, String config, final ArrayList<String> blockedApplication, final ArrayList<String> bypass_subnets,final boolean wakeLock, final boolean showSpeed) {
+    public static V2rayConfig parseV2rayJsonFile(final String remark, String config, final ArrayList<String> blockedApplication, final ArrayList<String> bypass_subnets,final boolean wakeLock, final boolean showSpeed,boolean autoReconnect,final  int intervalAutoReconnect,final int maxPingAutoReconnect, final int maxRetryAutoReconnect, String  urlAutoReconnect) {
         final V2rayConfig v2rayConfig = new V2rayConfig();
+        v2rayConfig.autoReconnect = autoReconnect;
+        v2rayConfig.intervalAutoReconnect = intervalAutoReconnect;
+        v2rayConfig.maxPingAutoReconnect = maxPingAutoReconnect;
+        v2rayConfig.maxRetryAutoReconnect = maxRetryAutoReconnect;
+        v2rayConfig.urlAutoReconnect = urlAutoReconnect;
+
         v2rayConfig.SHOW_SPEED   =  showSpeed;
         v2rayConfig.WAKE_LOCK = wakeLock;
         v2rayConfig.REMARK = remark;

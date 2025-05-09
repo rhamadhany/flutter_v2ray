@@ -47,7 +47,9 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
                 list.add(String.valueOf(intent.getLongExtra("UPLOAD_TRAFFIC", 0)));
                 list.add(String.valueOf(intent.getLongExtra("DOWNLOAD_TRAFFIC", 0)));
                 list.add(intent.getSerializableExtra("STATE").toString().substring(6));
-                V2rayReceiver.vpnStatusSink.success(list);
+                if (V2rayReceiver.vpnStatusSink != null) {
+                    V2rayReceiver.vpnStatusSink.success(list);
+                }
                 AppConfigs.V2RAY_STATE = (AppConfigs.V2RAY_STATES) intent.getSerializableExtra("STATE");
                 //Log.d("V2rayVPNService", "Received broadcast: " + intent.getAction());
             } catch (Exception e) {
@@ -81,7 +83,7 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
             }
 
             if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
-                V2rayCoreManager.getInstance().stopCore();
+                V2rayCoreManager.getInstance().stopCore(true);
             }
 
             if (v2rayConfig.WAKE_LOCK) {
@@ -94,13 +96,13 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
                 }
             }
 
-            if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
+            if (V2rayCoreManager.getInstance().startCore(v2rayConfig, true)) {
                 Log.e(V2rayProxyOnlyService.class.getSimpleName(), "onStartCommand success => v2ray core started.");
             } else {
                 this.onDestroy();
             }
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.STOP_SERVICE)) {
-            V2rayCoreManager.getInstance().stopCore();
+            V2rayCoreManager.getInstance().stopCore(true);
             AppConfigs.V2RAY_CONFIG = null;
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {
             new Thread(() -> {
@@ -120,7 +122,7 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         if (process != null) {
             process.destroy();
         }
-        V2rayCoreManager.getInstance().stopCore();
+        V2rayCoreManager.getInstance().stopCore(true);
         try {
             stopSelf();
         } catch (Exception e) {

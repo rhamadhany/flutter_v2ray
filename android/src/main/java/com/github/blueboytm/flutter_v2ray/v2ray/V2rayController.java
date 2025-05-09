@@ -47,8 +47,8 @@ public class V2rayController {
         // }
     }
 
-    public static void StartV2ray(final Context context, final String remark, final String config, final ArrayList<String> blocked_apps, final ArrayList<String> bypass_subnets, boolean wakeLock, boolean showSpeed) {
-        AppConfigs.V2RAY_CONFIG = Utilities.parseV2rayJsonFile(remark, config, blocked_apps, bypass_subnets, wakeLock, showSpeed);
+    public static void StartV2ray(final Context context, final String remark, final String config, final ArrayList<String> blocked_apps, final ArrayList<String> bypass_subnets, boolean wakeLock, boolean showSpeed, boolean autoReconnect,final  int intervalAutoReconnect,final int maxPingAutoReconnect, final int maxRetryAutoReconnect, String  urlAutoReconnect) {
+        AppConfigs.V2RAY_CONFIG = Utilities.parseV2rayJsonFile(remark, config, blocked_apps, bypass_subnets, wakeLock, showSpeed, autoReconnect, intervalAutoReconnect, maxPingAutoReconnect, maxRetryAutoReconnect, urlAutoReconnect);
         if (AppConfigs.V2RAY_CONFIG == null) {
             return;
         }

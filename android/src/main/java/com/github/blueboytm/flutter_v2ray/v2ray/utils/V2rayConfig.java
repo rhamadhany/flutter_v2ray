@@ -19,4 +19,9 @@ public class V2rayConfig implements Serializable {
     public String APPLICATION_NAME;
     public String NOTIFICATION_DISCONNECT_BUTTON_NAME;
     public int APPLICATION_ICON;
+    public boolean autoReconnect = false;
+    public int intervalAutoReconnect = 60;
+    public int maxPingAutoReconnect = 3;
+    public int maxRetryAutoReconnect = 3;
+    public String urlAutoReconnect = "https://google.com/generate_204";
 }

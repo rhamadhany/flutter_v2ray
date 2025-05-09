@@ -19,7 +19,8 @@ import androidx.core.app.ActivityCompat;
 import com.github.blueboytm.flutter_v2ray.v2ray.V2rayController;
 import com.github.blueboytm.flutter_v2ray.v2ray.V2rayReceiver;
 import com.github.blueboytm.flutter_v2ray.v2ray.utils.AppConfigs;
-
+import com.github.blueboytm.flutter_v2ray.v2ray.utils.V2rayConfig;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,6 +40,7 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
     private EventChannel vpnStatusEvent;
     private Activity activity;
     private MethodChannel.Result pendingResult;
+    
     private BroadcastReceiver v2rayReceiver;
     private Context applicationContext;
 
@@ -54,6 +56,7 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
             public void onListen(Object arguments, EventChannel.EventSink events) {
                 V2rayReceiver.vpnStatusSink = events;
                 registerReceiver();
+              
                 //Log.d("FlutterV2ray", "EventChannel listener registered");
             }
 
@@ -83,8 +86,29 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
                     if (Boolean.TRUE.equals(call.argument("proxy_only"))) {
                         V2rayController.changeConnectionMode(AppConfigs.V2RAY_CONNECTION_MODES.PROXY_ONLY);
                     }
-                    V2rayController.StartV2ray(binding.getApplicationContext(), call.argument("remark"), call.argument("config"), call.argument("blocked_apps"), call.argument("bypass_subnets"), wakeLock, showSpeed);
+                    V2rayController.StartV2ray(binding.getApplicationContext(), call.argument("remark"), call.argument("config"), call.argument("blocked_apps"), call.argument("bypass_subnets"), wakeLock, showSpeed, AppConfigs.V2RAY_CONFIG.autoReconnect, AppConfigs.V2RAY_CONFIG.intervalAutoReconnect, AppConfigs.V2RAY_CONFIG.maxPingAutoReconnect, AppConfigs.V2RAY_CONFIG.maxRetryAutoReconnect, AppConfigs.V2RAY_CONFIG.urlAutoReconnect);
                     result.success(null);
+                    break;
+                    case "autoReconnect":
+                    try {
+                        if (call.arguments instanceof Map) {
+                            Map<String, Object> config = (Map<String, Object>) call.arguments;
+                            Log.d("call autoReconnect"+ config, "tes");
+                            if (AppConfigs.V2RAY_CONFIG == null) {
+                                AppConfigs.V2RAY_CONFIG = new com.github.blueboytm.flutter_v2ray.v2ray.utils.V2rayConfig();
+                            }
+                            AppConfigs.V2RAY_CONFIG.autoReconnect = (Boolean) config.get("status");
+                            AppConfigs.V2RAY_CONFIG.intervalAutoReconnect = (Integer) config.get("interval");
+                            AppConfigs.V2RAY_CONFIG.maxPingAutoReconnect = (Integer) config.get("ping");
+                            AppConfigs.V2RAY_CONFIG.maxRetryAutoReconnect = (Integer) config.get("retry"); // Perbaikan typo
+                            Log.d("V2rayConfig.autoReconnect"+AppConfigs.V2RAY_CONFIG.autoReconnect, "tes");
+                            result.success(true);
+                        } else {
+                            result.error("INVALID_ARGUMENTS", "Arguments must be a Map", null);
+                        }
+                    } catch (Exception e) {
+                        result.error("ERROR", "Failed to process autoReconnect: " + e.getMessage(), null);
+                    }
                     break;
                 case "stopV2Ray":
                     V2rayController.StopV2ray(binding.getApplicationContext());
@@ -217,3 +241,4 @@ public class FlutterV2rayPlugin implements FlutterPlugin, ActivityAware, PluginR
         return true;
     }
 }
+
