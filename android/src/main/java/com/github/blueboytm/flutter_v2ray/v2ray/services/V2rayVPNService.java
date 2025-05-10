@@ -83,7 +83,7 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
             }
 
             if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
-                V2rayCoreManager.getInstance().stopCore(true);
+                V2rayCoreManager.getInstance().stopCore();
             }
 
             if (v2rayConfig.WAKE_LOCK) {
@@ -96,13 +96,13 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
                 }
             }
 
-            if (V2rayCoreManager.getInstance().startCore(v2rayConfig, true)) {
+            if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
                 Log.e(V2rayProxyOnlyService.class.getSimpleName(), "onStartCommand success => v2ray core started.");
             } else {
                 this.onDestroy();
             }
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.STOP_SERVICE)) {
-            V2rayCoreManager.getInstance().stopCore(true);
+            V2rayCoreManager.getInstance().stopCore();
             AppConfigs.V2RAY_CONFIG = null;
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {
             new Thread(() -> {
@@ -122,7 +122,7 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         if (process != null) {
             process.destroy();
         }
-        V2rayCoreManager.getInstance().stopCore(true);
+        V2rayCoreManager.getInstance().stopCore();
         try {
             stopSelf();
         } catch (Exception e) {

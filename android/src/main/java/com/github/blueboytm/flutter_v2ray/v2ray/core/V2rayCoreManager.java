@@ -38,6 +38,8 @@ import libv2ray.Libv2ray;
 import libv2ray.V2RayPoint;
 import libv2ray.V2RayVPNServiceSupportsSet;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,6 +50,7 @@ import java.util.concurrent.TimeoutException;
 public final class V2rayCoreManager {
     private static final int NOTIFICATION_ID = 1;
     private volatile static V2rayCoreManager INSTANCE;
+
     public V2rayServicesListener v2rayServicesListener = null;
     public final V2RayPoint v2RayPoint = Libv2ray.newV2RayPoint(new V2RayVPNServiceSupportsSet() {
         @Override
@@ -104,7 +107,7 @@ public final class V2rayCoreManager {
     private String SERVICE_DURATION = "00:00:00";
     private V2rayConfig currentV2rayConfig;
     private volatile int retryReconnect = 0;
-    // private volatile int retryPing = 0;
+    private volatile boolean finishTimer = true;
     private Timer timerReconnect;
 
     public static V2rayCoreManager getInstance() {
@@ -149,7 +152,7 @@ public final class V2rayCoreManager {
         }
     }
 
-    public boolean startCore(final V2rayConfig v2rayConfig, boolean stopTimer) {
+    public boolean startCore(final V2rayConfig v2rayConfig) {
         currentV2rayConfig = v2rayConfig;
         // Run makeDurationTimer on main thread to avoid Handler error
         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -163,7 +166,7 @@ public final class V2rayCoreManager {
         }
         
         if (isV2rayCoreRunning()) {
-            stopCore(stopTimer);
+            stopCore();
         }
         
         try {
@@ -186,12 +189,9 @@ public final class V2rayCoreManager {
         }
     }
 
-    public void stopCore(boolean stopTimer) {
+    public void stopCore() {
         try {
-            if (stopTimer && timerReconnect != null) {
-                timerReconnect.cancel();
-                timerReconnect = null;
-            }
+            
             NotificationManager notificationManager = (NotificationManager) 
                 v2rayServicesListener.getService().getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
@@ -405,112 +405,11 @@ public final class V2rayCoreManager {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (isStartForeground) {
             context.startForeground(NOTIFICATION_ID, notificationBuilder.build());
-            if (v2rayConfig.autoReconnect) {
-                autoReconnect(v2rayConfig);
-            }
+            
+            
         } else if (notificationManager != null) {
             notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build());
         }
-    }
-
-    private void autoReconnect(final V2rayConfig v2rayConfig) {
-        if (v2rayConfig == null || v2rayConfig.intervalAutoReconnect <= 0 || v2rayConfig.V2RAY_FULL_JSON_CONFIG == null ||
-            v2rayConfig.maxPingAutoReconnect < 0 || v2rayConfig.maxRetryAutoReconnect < 0) {
-            Log.e("V2rayCoreManager", "Invalid V2rayConfig or parameters");
-            if (v2rayServicesListener != null) {
-                Context context = v2rayServicesListener.getService().getApplicationContext();
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, "Invalid V2rayConfig or parameters", Toast.LENGTH_SHORT).show();
-                });
-            }
-            return;
-        }
-
-        if (timerReconnect != null) {
-            timerReconnect.cancel();
-            timerReconnect = null;
-        }
-
-        timerReconnect = new Timer();
-        timerReconnect.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    long delay = getV2rayServerDelayWithTimeout(v2rayConfig.V2RAY_FULL_JSON_CONFIG, v2rayConfig.urlAutoReconnect, 3);
-
-                    // String message = "Reconnect attempt: reconnect=" + retryReconnect + ", delay=" + delay;
-                    // Log.d("V2rayCoreManager", message);
-
-                    int ping = 0;
-                    if (delay == -1 && retryReconnect < v2rayConfig.maxRetryAutoReconnect){
-                        while (ping < v2rayConfig.maxPingAutoReconnect){
-                            ping++;
-                            delay = getV2rayServerDelayWithTimeout(v2rayConfig.V2RAY_FULL_JSON_CONFIG, v2rayConfig.urlAutoReconnect, 3);
-                            if (delay != -1){
-                                break;
-                            }
-                            Log.d("pengujian ping"+ping, "ping");
-                        } 
-if (ping == v2rayConfig.maxPingAutoReconnect && delay == -1){
-    
-    retryReconnect++;
-    if (v2rayServicesListener != null) {
-
-        Context context = v2rayServicesListener.getService().getApplicationContext();
-        new Handler(Looper.getMainLooper()).post(()-> {
-            Toast.makeText(context, "Max ping reached, try "+ retryReconnect+ " reconnecting...", Toast.LENGTH_SHORT).show();
-            
-        });
-    }
-    
-    stopCore(false);
-    try {
-        Thread.sleep(500);
-    } catch (InterruptedException e) {
-        Log.e("V2rayCoreManager", "Sleep interrupted", e);
-        Thread.currentThread().interrupt();
-    }
-    startCore(v2rayConfig, false); 
-}
-                    } else if (delay == -1 && retryReconnect >= v2rayConfig.maxRetryAutoReconnect){
-                        stopCore(true);
-                    } else {
-                        retryReconnect = 0;
-                    }
-
-                } catch (Exception e) {
-                    String errorMessage = "Error in autoReconnect task: " + e.getMessage();
-                    Log.e("V2rayCoreManager", errorMessage, e);
-                    if (v2rayServicesListener != null) {
-                        Context context = v2rayServicesListener.getService().getApplicationContext();
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show();
-                        });
-                    }
-                }
-            }
-        }, 0, v2rayConfig.intervalAutoReconnect * 1000L);
-    }
-
-    private long getV2rayServerDelayWithTimeout(final String config, final String url, int timeoutSeconds) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Future<Long> future = executor.submit(new Callable<Long>() {
-            @Override
-            public Long call() {
-                return getV2rayServerDelay(config, url);
-            }
-        });
-        try {
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            Log.e("V2rayCoreManager", "getV2rayServerDelay timed out");
-            future.cancel(true);
-            return -1L;
-        } catch (Exception e) {
-            Log.e("V2rayCoreManager", "Exception in getV2rayServerDelayWithTimeout", e);
-            return -1L;
-        } finally {
-            executor.shutdownNow();
-        }
+        
     }
 }
