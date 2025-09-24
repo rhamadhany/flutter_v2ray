@@ -2,8 +2,6 @@ package com.github.blueboytm.flutter_v2ray.v2ray.core;
 
 import static com.github.blueboytm.flutter_v2ray.v2ray.utils.Utilities.getUserAssetsPath;
 
-import java.util.Timer;
-import java.util.TimerTask;
 
 import android.Manifest;
 import android.app.Notification;
@@ -19,7 +17,6 @@ import android.os.Build;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.Toast;
 import android.util.Log;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
@@ -33,19 +30,9 @@ import com.github.blueboytm.flutter_v2ray.v2ray.utils.Utilities;
 import com.github.blueboytm.flutter_v2ray.v2ray.utils.V2rayConfig;
 
 import org.json.JSONObject;
-
 import libv2ray.Libv2ray;
 import libv2ray.V2RayPoint;
 import libv2ray.V2RayVPNServiceSupportsSet;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public final class V2rayCoreManager {
     private static final int NOTIFICATION_ID = 1;
@@ -106,9 +93,6 @@ public final class V2rayCoreManager {
     private long totalDownload, totalUpload, uploadSpeed, downloadSpeed;
     private String SERVICE_DURATION = "00:00:00";
     private V2rayConfig currentV2rayConfig;
-    private volatile int retryReconnect = 0;
-    private volatile boolean finishTimer = true;
-    private Timer timerReconnect;
 
     public static V2rayCoreManager getInstance() {
         if (INSTANCE == null) {
@@ -155,9 +139,10 @@ public final class V2rayCoreManager {
     public boolean startCore(final V2rayConfig v2rayConfig) {
         currentV2rayConfig = v2rayConfig;
         // Run makeDurationTimer on main thread to avoid Handler error
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-            makeDurationTimer(v2rayServicesListener.getService().getApplicationContext(), v2rayConfig.ENABLE_TRAFFIC_STATICS);
-        });
+
+        new Handler(Looper.getMainLooper()).post(() ->
+            makeDurationTimer(v2rayServicesListener.getService().getApplicationContext(), v2rayConfig.ENABLE_TRAFFIC_STATICS));
+
         V2RAY_STATE = AppConfigs.V2RAY_STATES.V2RAY_CONNECTING;
         
         if (!isLibV2rayCoreInitialized) {
